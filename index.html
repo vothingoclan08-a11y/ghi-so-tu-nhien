@@ -1,0 +1,503 @@
+import React, { useState } from 'react';
+import { Key, Unlock, ShieldAlert, BookOpen, Star, CheckCircle, HelpCircle, AlertTriangle, ChevronRight, Eye, RefreshCcw, Lightbulb, Zap, Clock } from 'lucide-react';
+
+const pedagogyData = {
+  stage1: {
+    objective: "Tạo mâu thuẫn nhận thức về sự bất tiện của việc đếm bằng vạch kẻ, dẫn đến nhu cầu cần hệ thống ghi số mới.",
+    studentTask: "Ghi vào Phiếu học tập lý do cách đếm cổ đại thất bại và đề xuất giải pháp.",
+    teacherRole: "Chiếu tình huống. Hỏi HS: 'Để ghi 99,999 bao lúa, người xưa làm thế nào? Điều gì xảy ra?'.",
+    questions: ["Mất bao lâu để vạch xong?", "Làm sao để ghi chép ngắn gọn hơn mà ai cũng hiểu?"],
+    errors: "HS chỉ nghĩ đến việc gom nhóm (5 vạch) thay vì dùng biểu tượng (chữ số).",
+    solution: "Dẫn dắt: Gom nhóm vẫn chiếm diện tích. Ta cần các BIỂU TƯỢNG thay thế số lượng."
+  },
+  stage2: {
+    objective: "Nhận biết 10 chữ số hệ thập phân và nguyên tắc 'giá trị theo vị trí'.",
+    studentTask: "So sánh giá trị số 3 trong 345 và 534. Rút ra kết luận về vị trí.",
+    teacherRole: "Điều khiển màn hình, yêu cầu HS thảo luận cặp đôi và nhập đáp án.",
+    questions: ["Vì sao cùng là số 3 mà giá trị lại khác biệt?", "Vị trí của 'viên đá' quyết định điều gì?"],
+    errors: "Nhầm lẫn giữa khái niệm 'Số' (345) và 'Chữ số' (3, 4, 5).",
+    solution: "Liên hệ: 'Chữ cái' ghép thành 'Từ'. Tương tự, 'Chữ số' ghép thành 'Số'."
+  },
+  stage3: {
+    objective: "Hiểu cấu tạo thập phân của một số (phân tích thành tổng các hàng) - Trọng tâm SGK.",
+    studentTask: "Điền các hệ số nhân với 1000, 100, 10 để 'phân rã' lõi năng lượng số 2756.",
+    teacherRole: "Giới thiệu khái niệm 'Cấu tạo thập phân'. Hướng dẫn HS cách biểu diễn.",
+    questions: ["Số 2 ở hàng nghìn mang giá trị thực sự là bao nhiêu?", "Viết thành tổng thế nào để thể hiện rõ giá trị đó?"],
+    errors: "HS cộng các chữ số lại với nhau (2+7+5+6) thay vì nhân với giá trị hàng.",
+    solution: "Chiếu lại mô hình Trạm 1: 2 rương lớn (nghìn) + 7 rương vừa (trăm)..."
+  },
+  stage4: {
+    objective: "Phát hiện quy luật cộng/trừ của số La Mã (I, V, X).",
+    studentTask: "Quan sát mẫu, suy luận giá trị của IX, XI. Viết số La Mã cho 24.",
+    teacherRole: "Mời đại diện nhóm giải thích quy luật. Nhập đáp án lên bảng.",
+    questions: ["Chữ I đứng trước chữ V thì giá trị thay đổi thế nào?", "Tại sao không ai viết 4 là IIII?"],
+    errors: "Viết 14 là XIIII hoặc XIVV.",
+    solution: "Nhấn mạnh quy tắc: Chữ I, X không lặp lại quá 3 lần liền nhau."
+  },
+  stage5: {
+    objective: "Tổng hợp: Đọc số lớn, số tự nhiên lớn nhất và hệ La Mã.",
+    studentTask: "Vượt qua 3 câu hỏi trắc nghiệm nhanh để lấy kho báu.",
+    teacherRole: "Tạo không khí hồi hộp (đếm ngược thời gian). Đọc to đề bài.",
+    questions: ["Số 97 582 000 đọc phần triệu, nghìn như thế nào?", "Thế kỷ chúng ta đang sống viết La Mã ra sao?"],
+    errors: "Quên cấu trúc lớp/hàng khi đọc số lớn.",
+    solution: "Yêu cầu HS dùng bút chì tách số thành từng nhóm 3 chữ số từ phải sang trái."
+  }
+};
+
+export default function MathtopiaGame() {
+  const [currentStage, setCurrentStage] = useState(1);
+  const [teacherMode, setTeacherMode] = useState(false);
+  const [toast, setToast] = useState(null);
+  const [showHint, setShowHint] = useState(false); // Nút bật/tắt đáp án cho GV
+  
+  // State Trạm 2
+  const [stage2Input, setStage2Input] = useState('');
+  const [stage2Revealed, setStage2Revealed] = useState(false);
+
+  // State Trạm 3 (Cấu tạo thập phân)
+  const [stage3Inputs, setStage3Inputs] = useState({ thou: '', hun: '', ten: '', one: '' });
+  const [stage3Revealed, setStage3Revealed] = useState(false);
+
+  // State Trạm 4 (La Mã)
+  const [romanInputs, setRomanInputs] = useState({ q1: '', q2: '', q3: '' });
+  const [stage4Revealed, setStage4Revealed] = useState(false);
+
+  // State Trạm 5 (Boss/Thử thách nhanh)
+  const [bossCodes, setBossCodes] = useState({ code1: '', code2: '', code3: '' });
+  const [isUnlocked, setIsUnlocked] = useState(false);
+
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const nextStage = () => {
+    setCurrentStage(prev => Math.min(prev + 1, 5));
+    setShowHint(false); // Reset hint khi sang trạm mới
+    window.scrollTo(0,0);
+  };
+
+  const TeacherPanel = () => {
+    if (!teacherMode) return null;
+    const data = pedagogyData[`stage${currentStage}`];
+    
+    return (
+      <div className="fixed right-0 top-0 h-full w-80 bg-slate-900 text-slate-100 p-6 shadow-2xl overflow-y-auto border-l-4 border-amber-500 z-50 transition-transform duration-300">
+        <div className="flex items-center gap-2 mb-6 text-amber-400 border-b border-slate-700 pb-4">
+          <Eye size={24} />
+          <h2 className="text-xl font-bold uppercase">Mắt kính Giáo viên</h2>
+        </div>
+        
+        <div className="space-y-6 text-sm">
+          <div>
+            <h3 className="text-emerald-400 font-bold flex items-center gap-2 mb-2"><Star size={16}/> Mục tiêu trạm</h3>
+            <p className="text-slate-300 leading-relaxed">{data.objective}</p>
+          </div>
+          <div>
+            <h3 className="text-blue-400 font-bold flex items-center gap-2 mb-2"><CheckCircle size={16}/> Hoạt động</h3>
+            <p className="text-slate-300 leading-relaxed mb-2"><strong className="text-blue-300">HS làm:</strong> {data.studentTask}</p>
+            <p className="text-slate-300 leading-relaxed"><strong className="text-blue-300">GV làm:</strong> {data.teacherRole}</p>
+          </div>
+          <div>
+            <h3 className="text-purple-400 font-bold flex items-center gap-2 mb-2"><HelpCircle size={16}/> Câu hỏi gợi mở</h3>
+            <ul className="list-disc pl-5 text-slate-300 space-y-1">
+              {data.questions.map((q, i) => <li key={i}>{q}</li>)}
+            </ul>
+          </div>
+          <div className="bg-slate-800 p-4 rounded-lg border border-red-900">
+            <h3 className="text-red-400 font-bold flex items-center gap-2 mb-2"><AlertTriangle size={16}/> Sai lầm & Xử lý</h3>
+            <p className="text-slate-300 mb-2"><strong>Lỗi:</strong> {data.errors}</p>
+            <p className="text-emerald-300"><strong>Sửa:</strong> {data.solution}</p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderStage1 = () => (
+    <div className="max-w-4xl mx-auto bg-slate-800 p-8 rounded-3xl shadow-2xl border border-slate-700 text-center animate-fade-in">
+      <div className="inline-block bg-slate-900 p-4 rounded-2xl mb-6">
+        <Unlock className="w-16 h-16 text-amber-500 mx-auto" />
+      </div>
+      <h1 className="text-4xl font-black text-amber-400 mb-6 font-serif">SỰ KIỆN: KHO LÚA HOÀNG GIA</h1>
+      <p className="text-xl text-slate-300 mb-8 leading-relaxed">
+        Nhà vua yêu cầu ghi chép <strong>99,999</strong> bao lúa. Người ghi chép cổ đại đã dùng cách vạch lên tường như sau:
+      </p>
+      
+      <div className="bg-slate-700 p-6 rounded-xl font-mono text-2xl text-slate-400 tracking-widest break-all mb-8 shadow-inner overflow-hidden h-32 relative">
+        |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| 
+        |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| |||| ||||
+        <div className="absolute bottom-0 left-0 w-full h-16 bg-gradient-to-t from-slate-700 to-transparent"></div>
+      </div>
+
+      <div className="bg-amber-900/30 border border-amber-700 p-6 rounded-xl mb-8">
+        <h3 className="text-amber-400 font-bold text-xl mb-2 flex justify-center items-center gap-2">
+          <ShieldAlert /> YÊU CẦU LỚP HỌC (Mục 1 trên Phiếu)
+        </h3>
+        <p className="text-slate-200">
+          Hãy thảo luận nhóm: Vì sao cách ghi này khiến người ghi chép ngất xỉu? Chúng ta cần một giải pháp thế nào?
+        </p>
+      </div>
+
+      <button 
+        onClick={nextStage}
+        className="bg-amber-600 hover:bg-amber-500 text-white font-bold py-4 px-10 rounded-full text-xl transition-all transform hover:scale-105 shadow-lg shadow-amber-900/50"
+      >
+        Sau khi nhóm thảo luận xong &gt; Mở cuộn giấy bí mật
+      </button>
+    </div>
+  );
+
+  const renderStage2 = () => {
+    const checkStage2 = () => {
+      if (stage2Input === '30' || stage2Input.toLowerCase().includes('ba mươi') || stage2Input.toLowerCase().includes('ba chục')) {
+        showToast("Chính xác! Vị trí đã làm thay đổi giá trị.");
+        setStage2Revealed(true);
+      } else {
+        showToast("Hãy xem số 3 đang đứng ở hàng nào (Đơn vị, Chục, hay Trăm)?", "error");
+      }
+    };
+
+    return (
+      <div className="max-w-5xl mx-auto bg-slate-100 p-8 rounded-3xl shadow-2xl text-center animate-fade-in relative overflow-hidden">
+        <h2 className="text-4xl font-black text-indigo-900 mb-6 font-serif">TRẠM 1: BÍ ẨN 10 VIÊN ĐÁ MA THUẬT</h2>
+        <p className="text-lg text-slate-700 mb-8">
+          Người Ả Rập cổ đại chỉ dùng 10 kí hiệu cơ bản: <strong className="text-2xl text-indigo-600 tracking-widest">0123456789</strong>
+        </p>
+
+        <div className="grid grid-cols-2 gap-8 mb-8">
+          <div className="bg-white p-6 rounded-2xl shadow-md border-2 border-indigo-100">
+            <h3 className="text-2xl font-bold text-indigo-800 mb-4">Mẫu: Số 345</h3>
+            <div className="flex justify-center gap-4 text-center">
+              <div>
+                <div className="text-5xl font-black text-rose-500 mb-2">3</div>
+                <div className="text-xs text-rose-600 font-bold bg-rose-100 rounded px-2 py-1 mt-1">Giá trị: 300</div>
+              </div>
+              <div>
+                <div className="text-5xl font-black text-blue-500 mb-2">4</div>
+                <div className="text-xs text-blue-600 font-bold bg-blue-100 rounded px-2 py-1 mt-1">Giá trị: 40</div>
+              </div>
+              <div>
+                <div className="text-5xl font-black text-emerald-500 mb-2">5</div>
+                <div className="text-xs text-emerald-600 font-bold bg-emerald-100 rounded px-2 py-1 mt-1">Giá trị: 5</div>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-indigo-900 p-6 rounded-2xl shadow-md border-2 border-indigo-900 text-white">
+            <h3 className="text-2xl font-bold text-indigo-200 mb-4">Nhiệm vụ: Số 534</h3>
+            <div className="flex justify-center gap-4 text-center">
+              <div>
+                <div className="text-5xl font-black text-emerald-400 mb-2">5</div>
+              </div>
+              <div>
+                <div className="text-5xl font-black text-rose-400 mb-2 underline decoration-wavy decoration-amber-400">3</div>
+              </div>
+              <div>
+                <div className="text-5xl font-black text-blue-400 mb-2">4</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {!stage2Revealed ? (
+          <div className="bg-rose-50 border border-rose-200 p-6 rounded-xl flex flex-col items-center gap-4">
+             <div className="flex items-center justify-between w-full">
+               <h4 className="font-bold text-rose-800 text-xl">Đại diện nhóm nhập đáp án (Mục 2):</h4>
+               <button onClick={() => setShowHint(!showHint)} className="text-sm text-slate-500 hover:text-amber-600 flex items-center gap-1"><Lightbulb size={16}/> Gợi ý</button>
+             </div>
+             
+             <div className="flex items-center gap-4">
+               <span className="text-lg font-medium text-slate-700">Trong số 534, chữ số 3 có giá trị là bao nhiêu?</span>
+               <div className="relative">
+                 <input 
+                   type="text" 
+                   value={stage2Input}
+                   onChange={(e) => setStage2Input(e.target.value)}
+                   className="text-2xl font-bold text-center w-32 px-4 py-2 rounded border-2 border-rose-300 focus:outline-none focus:border-rose-500"
+                   placeholder="???"
+                 />
+                 {showHint && <span className="absolute -top-6 left-0 text-amber-600 font-bold text-sm bg-white px-2 rounded border shadow">Đ.Án: 30</span>}
+               </div>
+               <button onClick={checkStage2} className="bg-rose-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-rose-700 transition">Kiểm tra</button>
+             </div>
+          </div>
+        ) : (
+          <div className="bg-emerald-100 border-2 border-emerald-500 p-6 rounded-xl animate-fade-in">
+             <h3 className="text-2xl font-black text-emerald-800 mb-2">KẾT LUẬN QUAN TRỌNG</h3>
+             <p className="text-lg text-emerald-900">
+               Cùng một chữ số, nhưng <strong>VỊ TRÍ</strong> (Hàng đơn vị, Hàng chục, Hàng trăm...) sẽ quyết định giá trị của nó. Đây gọi là <strong>Hệ Thập Phân</strong>.
+             </p>
+             <button onClick={nextStage} className="mt-4 bg-emerald-600 text-white px-8 py-3 rounded-full font-bold hover:bg-emerald-700 flex items-center justify-center mx-auto gap-2">
+                Sang trạm tiếp theo <ChevronRight />
+             </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderStage3 = () => {
+    const checkStage3 = () => {
+      if (stage3Inputs.thou === '2' && stage3Inputs.hun === '7' && stage3Inputs.ten === '5' && stage3Inputs.one === '6') {
+        showToast("Phân rã năng lượng thành công!");
+        setStage3Revealed(true);
+      } else {
+        showToast("Có lỗi trong việc nhân các hàng. Hãy kiểm tra lại!", "error");
+      }
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto bg-cyan-900 p-8 rounded-3xl shadow-2xl text-center border-4 border-cyan-500 animate-fade-in text-cyan-100">
+        <h2 className="text-4xl font-black text-cyan-300 mb-6 font-serif flex items-center justify-center gap-3">
+          <Zap /> TRẠM 2: PHÂN RÃ CẤU TẠO THẬP PHÂN
+        </h2>
+        <p className="text-lg mb-8">
+          Để khởi động cỗ máy vượt thời gian, các kĩ sư cần "phân rã" lõi năng lượng <strong className="text-3xl text-yellow-400">2756</strong> thành tổng các hàng.
+        </p>
+
+        <div className="bg-cyan-950 p-8 rounded-2xl border border-cyan-700 mb-8 shadow-inner">
+           <h3 className="text-xl text-cyan-400 mb-6 font-bold flex justify-between">
+             <span>Hoàn thành phương trình (Mục 3 trên Phiếu)</span>
+             <button onClick={() => setShowHint(!showHint)} className="text-sm text-cyan-600 hover:text-yellow-400 flex items-center gap-1"><Lightbulb size={16}/> Gợi ý</button>
+           </h3>
+           <div className="flex flex-wrap items-center justify-center gap-4 text-2xl font-bold font-mono">
+              <span className="text-yellow-400">2756</span>
+              <span className="text-cyan-500">=</span>
+              <div className="relative">
+                <input type="text" maxLength={1} value={stage3Inputs.thou} onChange={e => setStage3Inputs({...stage3Inputs, thou: e.target.value})} className="w-12 text-center bg-cyan-900 border-b-2 border-cyan-400 outline-none text-white focus:border-yellow-400" />
+                {showHint && <span className="absolute -top-6 left-0 text-yellow-400 text-xs">2</span>}
+              </div>
+              <span className="text-cyan-300 text-lg">x 1000</span>
+              <span className="text-cyan-500">+</span>
+              <div className="relative">
+                <input type="text" maxLength={1} value={stage3Inputs.hun} onChange={e => setStage3Inputs({...stage3Inputs, hun: e.target.value})} className="w-12 text-center bg-cyan-900 border-b-2 border-cyan-400 outline-none text-white focus:border-yellow-400" />
+                {showHint && <span className="absolute -top-6 left-0 text-yellow-400 text-xs">7</span>}
+              </div>
+              <span className="text-cyan-300 text-lg">x 100</span>
+              <span className="text-cyan-500">+</span>
+              <div className="relative">
+                <input type="text" maxLength={1} value={stage3Inputs.ten} onChange={e => setStage3Inputs({...stage3Inputs, ten: e.target.value})} className="w-12 text-center bg-cyan-900 border-b-2 border-cyan-400 outline-none text-white focus:border-yellow-400" />
+                {showHint && <span className="absolute -top-6 left-0 text-yellow-400 text-xs">5</span>}
+              </div>
+              <span className="text-cyan-300 text-lg">x 10</span>
+              <span className="text-cyan-500">+</span>
+              <div className="relative">
+                <input type="text" maxLength={1} value={stage3Inputs.one} onChange={e => setStage3Inputs({...stage3Inputs, one: e.target.value})} className="w-12 text-center bg-cyan-900 border-b-2 border-cyan-400 outline-none text-white focus:border-yellow-400" />
+                {showHint && <span className="absolute -top-6 left-0 text-yellow-400 text-xs">6</span>}
+              </div>
+           </div>
+        </div>
+
+        {!stage3Revealed ? (
+          <button onClick={checkStage3} className="bg-cyan-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-cyan-500 text-xl transition">Xác nhận phân rã</button>
+        ) : (
+          <button onClick={nextStage} className="bg-yellow-500 text-cyan-900 px-8 py-3 rounded-full font-bold hover:bg-yellow-400 flex items-center justify-center mx-auto gap-2">
+            Động cơ khởi động! Đi tiếp <ChevronRight />
+          </button>
+        )}
+      </div>
+    );
+  };
+
+  const renderStage4 = () => {
+    const checkRoman = () => {
+      if (romanInputs.q1 === '9' && romanInputs.q2 === '11' && romanInputs.q3.toUpperCase() === 'XXIV') {
+        showToast("Tuyệt vời! Bạn đã nắm bắt được quy luật La Mã.");
+        setTimeout(nextStage, 2000);
+      } else {
+        showToast("Quy luật cộng/trừ chưa chính xác. Chú ý số 24!", "error");
+      }
+    };
+
+    return (
+      <div className="max-w-4xl mx-auto bg-stone-900 p-8 rounded-3xl shadow-2xl text-center border-4 border-stone-700 animate-fade-in text-stone-200">
+        <h2 className="text-4xl font-black text-stone-100 mb-6 font-serif border-b border-stone-700 pb-4">TRẠM 3: PHIẾN ĐÁ LA MÃ</h2>
+        
+        <div className="flex justify-center gap-12 mb-8">
+          <div className="text-center">
+             <div className="text-6xl font-serif text-amber-500 mb-2">I</div>
+             <div className="text-xl">1</div>
+          </div>
+          <div className="text-center">
+             <div className="text-6xl font-serif text-amber-500 mb-2">V</div>
+             <div className="text-xl">5</div>
+          </div>
+          <div className="text-center">
+             <div className="text-6xl font-serif text-amber-500 mb-2">X</div>
+             <div className="text-xl">10</div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-6 mb-8 text-left">
+           <div className="bg-stone-800 p-6 rounded-xl border border-stone-600">
+              <h3 className="text-amber-400 font-bold mb-4 text-xl">Mẫu quan sát:</h3>
+              <ul className="text-2xl font-serif space-y-3">
+                <li><span className="text-stone-400 inline-block w-16">III</span> ➔ 3</li>
+                <li><span className="text-stone-400 inline-block w-16">IV</span> ➔ 4</li>
+                <li><span className="text-stone-400 inline-block w-16">VI</span> ➔ 6</li>
+              </ul>
+           </div>
+           
+           <div className="bg-stone-800 p-6 rounded-xl border border-stone-600 flex flex-col justify-center gap-4 relative">
+              <div className="flex justify-between items-center w-full">
+                <p className="text-sm text-stone-400 uppercase tracking-wider">Nhập kết quả (Mục 4):</p>
+                <button onClick={() => setShowHint(!showHint)} className="text-xs text-stone-500 hover:text-amber-400 flex items-center gap-1"><Lightbulb size={14}/> Gợi ý</button>
+              </div>
+              <div className="flex items-center gap-4 text-2xl font-serif relative">
+                 <span className="w-16 text-amber-500 font-bold">IX</span> ➔
+                 <input type="text" value={romanInputs.q1} onChange={e => setRomanInputs({...romanInputs, q1: e.target.value})} className="w-20 bg-stone-700 text-center rounded border border-stone-500 focus:border-amber-500 outline-none" />
+                 {showHint && <span className="absolute right-0 text-amber-400 text-sm font-sans">9</span>}
+              </div>
+              <div className="flex items-center gap-4 text-2xl font-serif relative">
+                 <span className="w-16 text-amber-500 font-bold">XI</span> ➔
+                 <input type="text" value={romanInputs.q2} onChange={e => setRomanInputs({...romanInputs, q2: e.target.value})} className="w-20 bg-stone-700 text-center rounded border border-stone-500 focus:border-amber-500 outline-none" />
+                 {showHint && <span className="absolute right-0 text-amber-400 text-sm font-sans">11</span>}
+              </div>
+              <div className="flex items-center gap-4 text-2xl font-serif relative mt-4 border-t border-stone-600 pt-4">
+                 <span className="w-16 font-sans text-stone-300 text-lg">Số 24</span> ➔
+                 <input type="text" value={romanInputs.q3} onChange={e => setRomanInputs({...romanInputs, q3: e.target.value.toUpperCase()})} className="w-32 bg-stone-700 text-center rounded border border-stone-500 focus:border-amber-500 outline-none uppercase" placeholder="La Mã" />
+                 {showHint && <span className="absolute right-0 text-amber-400 text-sm font-sans">XXIV</span>}
+              </div>
+           </div>
+        </div>
+
+        <button onClick={checkRoman} className="bg-amber-700 text-stone-100 px-8 py-3 rounded-xl font-bold hover:bg-amber-600 text-xl w-full uppercase tracking-wider transition">
+          Mở phong ấn La Mã
+        </button>
+      </div>
+    );
+  };
+
+  const renderStage5 = () => {
+    const checkFinalCode = () => {
+      // Bỏ khoảng trắng khi check
+      const c1 = bossCodes.code1.replace(/\s/g, ''); 
+      if (c1 === '97582000' && bossCodes.code2.toUpperCase() === 'XXI' && bossCodes.code3 === '987') {
+        setIsUnlocked(true);
+      } else {
+        showToast("Mã khóa sai! Vệ thần đang nổi giận!", "error");
+      }
+    };
+
+    if (isUnlocked) {
+      return (
+        <div className="max-w-4xl mx-auto bg-yellow-50 border-4 border-yellow-400 p-12 rounded-3xl shadow-2xl text-center animate-bounce">
+          <Star className="w-32 h-32 text-yellow-500 mx-auto mb-6" />
+          <h1 className="text-5xl font-black text-yellow-600 mb-4">XUẤT SẮC!</h1>
+          <p className="text-2xl text-yellow-800 mb-8">Lớp chúng ta đã làm chủ "Hệ thập phân" và "Số La Mã". Kho báu đã mở!</p>
+          <button onClick={() => window.location.reload()} className="bg-yellow-500 text-white px-6 py-3 rounded-full font-bold hover:bg-yellow-600 flex items-center gap-2 mx-auto">
+             <RefreshCcw size={20}/> Chơi lại từ đầu
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="max-w-5xl mx-auto bg-slate-900 p-8 rounded-3xl shadow-2xl text-center border-4 border-red-900">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-4xl font-black text-red-500 font-serif flex items-center gap-3">
+            <Clock /> THỬ THÁCH NHANH: VỆ THẦN KHO BÁU (Mục 5)
+          </h2>
+          <button onClick={() => setShowHint(!showHint)} className="bg-slate-800 text-slate-400 px-3 py-1 rounded hover:text-white flex items-center gap-1"><Lightbulb size={16}/> Xem đáp án</button>
+        </div>
+        <p className="text-slate-300 mb-8 text-lg">Trả lời đúng 3 câu hỏi liên hoàn để mở cửa cuối cùng!</p>
+
+        <div className="grid grid-cols-3 gap-6 mb-8 text-left">
+           {/* Câu 1 */}
+           <div className="bg-slate-800 p-5 rounded-xl border-2 border-indigo-500 relative">
+              <h3 className="text-indigo-400 font-bold mb-2">1. Đọc số lớn</h3>
+              <p className="text-slate-300 text-sm mb-4 h-16">Dân số Việt Nam năm 2020 là <strong className="text-white">chín mươi bảy triệu năm trăm tám mươi hai nghìn</strong> người. Viết số đó:</p>
+              <input 
+                type="text" 
+                value={bossCodes.code1}
+                onChange={e => setBossCodes({...bossCodes, code1: e.target.value})}
+                className="w-full text-center text-2xl font-black text-indigo-400 bg-slate-900 rounded py-2 border border-indigo-900 outline-none"
+              />
+              {showHint && <span className="absolute bottom-2 right-4 text-emerald-400 text-xs font-bold">97 582 000</span>}
+           </div>
+
+           {/* Câu 2 */}
+           <div className="bg-slate-800 p-5 rounded-xl border-2 border-amber-500 relative">
+              <h3 className="text-amber-400 font-bold mb-2">2. Lịch sử La Mã</h3>
+              <p className="text-slate-300 text-sm mb-4 h-16">Chúng ta đang sống ở **Thế kỷ 21**. Hãy viết số 21 bằng chữ số La Mã:</p>
+              <input 
+                type="text" 
+                value={bossCodes.code2}
+                onChange={e => setBossCodes({...bossCodes, code2: e.target.value})}
+                className="w-full text-center text-2xl font-black text-amber-400 bg-slate-900 rounded py-2 border border-amber-900 outline-none uppercase"
+              />
+              {showHint && <span className="absolute bottom-2 right-4 text-emerald-400 text-xs font-bold">XXI</span>}
+           </div>
+
+           {/* Câu 3 */}
+           <div className="bg-slate-800 p-5 rounded-xl border-2 border-emerald-500 relative">
+              <h3 className="text-emerald-400 font-bold mb-2">3. Tư duy hệ thập phân</h3>
+              <p className="text-slate-300 text-sm mb-4 h-16">Tìm số tự nhiên lớn nhất có 3 chữ số khác nhau:</p>
+              <input 
+                type="text" 
+                value={bossCodes.code3}
+                onChange={e => setBossCodes({...bossCodes, code3: e.target.value})}
+                className="w-full text-center text-2xl font-black text-emerald-400 bg-slate-900 rounded py-2 border border-emerald-900 outline-none"
+              />
+              {showHint && <span className="absolute bottom-2 right-4 text-emerald-400 text-xs font-bold">987</span>}
+           </div>
+        </div>
+
+        <button onClick={checkFinalCode} className="w-full bg-gradient-to-r from-red-700 to-red-500 text-white py-4 rounded-xl font-black text-2xl hover:opacity-90 shadow-[0_0_20px_rgba(239,68,68,0.4)] transition uppercase">
+          Khóa chốt! Kích hoạt
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-200 font-sans flex flex-col selection:bg-amber-300 selection:text-slate-900">
+      {/* Navigation */}
+      <nav className="bg-slate-900 text-white p-4 shadow-lg flex justify-between items-center relative z-10">
+        <div className="flex items-center gap-3">
+          <BookOpen className="text-amber-500" />
+          <h1 className="text-xl font-bold uppercase tracking-widest text-slate-200">
+            Game Sư Phạm: <span className="text-amber-400">Cách Ghi Số Tự Nhiên</span>
+          </h1>
+        </div>
+        
+        <button 
+          onClick={() => setTeacherMode(!teacherMode)}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg font-bold transition-all text-sm border-2 
+            ${teacherMode ? 'bg-amber-500 text-slate-900 border-amber-500' : 'bg-transparent text-amber-500 border-amber-500 hover:bg-slate-800'}`}
+        >
+          <Eye size={18} />
+          {teacherMode ? "Tắt Mắt Kính GV" : "Bật Mắt Kính GV"}
+        </button>
+      </nav>
+
+      {/* Thanh tiến trình */}
+      <div className="flex justify-center gap-2 p-6 bg-slate-300">
+        {[1, 2, 3, 4, 5].map(step => (
+          <div key={step} className={`h-2 w-16 rounded-full transition-all duration-500 ${step <= currentStage ? (step === 5 ? 'bg-red-500' : 'bg-indigo-600') : 'bg-slate-400'}`}></div>
+        ))}
+      </div>
+
+      {/* Nội dung trò chơi */}
+      <main className="flex-1 p-4 md:p-8 flex items-center justify-center relative">
+        {currentStage === 1 && renderStage1()}
+        {currentStage === 2 && renderStage2()}
+        {currentStage === 3 && renderStage3()}
+        {currentStage === 4 && renderStage4()}
+        {currentStage === 5 && renderStage5()}
+      </main>
+
+      <TeacherPanel />
+      
+      {/* Thông báo (Toast) */}
+      {toast && (
+        <div className={`fixed bottom-10 left-1/2 transform -translate-x-1/2 px-8 py-4 rounded-full shadow-2xl font-bold text-lg flex items-center gap-3 animate-bounce z-50
+          ${toast.type === 'error' ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'}`}>
+          {toast.type === 'error' ? <AlertTriangle /> : <CheckCircle />}
+          {toast.msg}
+        </div>
+      )}
+    </div>
+  );
+}
